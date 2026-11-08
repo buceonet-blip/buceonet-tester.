@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#05090d">
+  <meta name="description" content="Buceonet Tester: probá los botones y joysticks de tu control.">
+  <title>Buceonet Tester</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Buceonet Tester inicio">
+      <span class="brand-mark">B</span>
+      <span><strong>BUCEONET</strong><small>TESTER DE CONTROLES</small></span>
+    </a>
+    <span class="status-pill"><i id="statusDot"></i><span id="connectionStatus">Sin control conectado</span></span>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="eyebrow">DIAGNÓSTICO INTERACTIVO</div>
+      <h1>Probá tu <span>joystick</span></h1>
+      <p>Conectá tu control y comprobá sus botones, sticks y gatillos en tiempo real.</p>
+    </section>
+
+    <section class="connect-panel panel">
+      <div class="connect-icon">🎮</div>
+      <div class="connect-copy">
+        <h2>Conectá tu control</h2>
+        <p id="connectHelp">Conectalo por USB o Bluetooth y presioná cualquier botón para que el navegador lo detecte.</p>
+      </div>
+      <button id="startButton" class="primary-button">Comenzar prueba</button>
+    </section>
+
+    <section id="tester" class="tester-grid" aria-live="polite">
+      <div class="panel controller-panel">
+        <div class="section-heading">
+          <div><span class="eyebrow">ENTRADAS</span><h2>Botones</h2></div>
+          <span class="small-tag" id="buttonCount">0 / 17</span>
+        </div>
+        <div class="controller-layout">
+          <div class="button-cluster dpad-cluster">
+            <span class="cluster-label">CRUCETA</span>
+            <div class="dpad">
+              <span class="test-button" data-button="12">↑</span>
+              <span class="test-button" data-button="14">←</span>
+              <span class="dpad-center">+</span>
+              <span class="test-button" data-button="15">→</span>
+              <span class="test-button" data-button="13">↓</span>
+            </div>
+          </div>
+          <div class="button-cluster face-cluster">
+            <span class="cluster-label">BOTONES PRINCIPALES</span>
+            <div class="face-buttons">
+              <span class="test-button face triangle" data-button="3">△</span>
+              <span class="test-button face square" data-button="2">□</span>
+              <span class="test-button face circle" data-button="1">○</span>
+              <span class="test-button face cross" data-button="0">×</span>
+            </div>
+          </div>
+        </div>
+        <div class="button-groups">
+          <div class="button-row">
+            <span class="group-name">HOMBROS</span>
+            <span class="test-button wide" data-button="4">L1</span>
+            <span class="test-button wide" data-button="5">R1</span>
+          </div>
+          <div class="button-row">
+            <span class="group-name">GATILLOS</span>
+            <div class="trigger-wrap"><span class="test-button wide" data-button="6">L2</span><div class="meter"><i id="l2Meter"></i></div><small id="l2Value">0%</small></div>
+            <div class="trigger-wrap"><span class="test-button wide" data-button="7">R2</span><div class="meter"><i id="r2Meter"></i></div><small id="r2Value">0%</small></div>
+          </div>
+          <div class="button-row">
+            <span class="group-name">STICKS</span>
+            <span class="test-button wide" data-button="10">L3</span>
+            <span class="test-button wide" data-button="11">R3</span>
+          </div>
+          <div class="button-row">
+            <span class="group-name">CENTRO</span>
+            <span class="test-button wide" data-button="8">SHARE / CREATE</span>
+            <span class="test-button wide" data-button="9">OPTIONS</span>
+            <span class="test-button wide" data-button="16">PS / HOME</span>
+          </div>
+        </div>
+        <p class="hint">Los nombres y posiciones pueden variar según el modelo del control y el navegador.</p>
+      </div>
+
+      <div class="panel sticks-panel">
+        <div class="section-heading">
+          <div><span class="eyebrow">MOVIMIENTO</span><h2>Joysticks</h2></div>
+          <span class="small-tag">EJES EN VIVO</span>
+        </div>
+        <div class="sticks">
+          <div class="stick-test">
+            <h3>IZQUIERDO <span id="leftCoords">X 0.00 · Y 0.00</span></h3>
+            <div class="stick-area"><div class="crosshair"></div><div class="stick-dot" id="leftDot"></div></div>
+          </div>
+          <div class="stick-test">
+            <h3>DERECHO <span id="rightCoords">X 0.00 · Y 0.00</span></h3>
+            <div class="stick-area"><div class="crosshair"></div><div class="stick-dot" id="rightDot"></div></div>
+          </div>
+        </div>
+        <div class="drift-box">
+          <div><strong>Prueba de centrado</strong><p>Soltá ambos sticks y mantenelos quietos durante 5 segundos.</p></div>
+          <button id="driftButton" class="secondary-button" disabled>Medir centrado</button>
+        </div>
+        <div id="driftResult" class="result-line">Esperando medición.</div>
+      </div>
+    </section>
+
+    <section class="panel report-panel">
+      <div class="section-heading">
+        <div><span class="eyebrow">RESUMEN</span><h2>Estado de la prueba</h2></div>
+        <span id="testState" class="small-tag">PENDIENTE</span>
+      </div>
+      <div class="summary-grid">
+        <div><strong id="summaryController">No detectado</strong><small>Control</small></div>
+        <div><strong id="summaryButtons">0</strong><small>Botones presionados</small></div>
+        <div><strong id="summaryAxes">—</strong><small>Ejes detectados</small></div>
+      </div>
+      <div class="report-actions">
+        <button id="reportButton" class="primary-button" disabled>Descargar informe TXT</button>
+        <button id="whatsappButton" class="secondary-button">Consultar por WhatsApp</button>
+      </div>
+      <p class="disclaimer">Este tester muestra las señales que el navegador recibe del control. No reemplaza una revisión técnica del hardware y no puede confirmar por sí solo el estado de componentes internos.</p>
+    </section>
+
+    <footer>BUCEONET VIDEOJUEGOS <span>·</span> Diagnóstico inicial de controles</footer>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
