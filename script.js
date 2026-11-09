@@ -2,863 +2,975 @@
 (() => {
   "use strict";
 
-  const $ = id => document.getElementById(id);
+  // ==========================================
+  // BUCEONET VIDEOJUEGOS - TESTER
+  // ==========================================
 
-  const status = $("connectionStatus");
-  const statusPill = document.querySelector(".status-pill");
-  const startButton = $("startButton");
-  const driftButton = $("driftButton");
-  const reportButton = $("reportButton");
+  const TOTAL_BUTTONS = 17;
+
+  const buttonNames = [
+    "A",
+    "B",
+    "X",
+    "Y",
+    "LB",
+    "RB",
+    "LT",
+    "RT",
+    "View / Share",
+    "Menu / Options",
+    "Stick izquierdo L3",
+    "Stick derecho R3",
+    "Cruceta arriba",
+    "Cruceta abajo",
+    "Cruceta izquierda",
+    "Cruceta derecha",
+    "Botón PS / Xbox / Home"
+  ];
 
   const testedButtons = new Set();
 
-  let activeIndex = null;
-  let animationId = null;
+  // Guarda el máximo valor registrado de cada botón.
+  const buttonMaxValues = {};
+
+  let gamepad = null;
+  let activeGamepadId = "";
+  let animationFrame = null;
   let lastSnapshot = null;
-  let driftTimer = false;
-  let driftSamples = [];
-  let currentProfile = "generic";
-  let expectedButtons = 0;
 
-  const circularity = {
-    left: { active: false, points: [], result: null },
-    right: { active: false, points: [], result: null }
+  let leftCircularity = null;
+  let rightCircularity = null;
+
+  let driftTest = {
+    active: false,
+    startTime: 0,
+    samples: [],
+    timer: null
   };
 
-  const stickConfig = {
-    left: {
-      xAxis: 0, yAxis: 1,
-      canvas: "leftCanvas",
-      button: "leftCircularityButton",
-      result: "leftCircularityResult"
-    },
-    right: {
-      xAxis: 2, yAxis: 3,
-      canvas: "rightCanvas",
-      button: "rightCircularityButton",
-      result: "rightCircularityResult"
+  // ==========================================
+  // ELEMENTOS HTML
+  // ==========================================
+
+  const $ = (selector) => document.querySelector(selector);
+
+  const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+  const leftCanvas = $("#leftCanvas");
+  const rightCanvas = $("#rightCanvas");
+
+  const leftCircularityButton = $("#leftCircularityButton");
+  const rightCircularityButton = $("#rightCircularityButton");
+
+  // ==========================================
+  // PERFIL DEL CONTROL
+  // ==========================================
+
+  function getProfile(pad) {
+    const id = (pad?.id || "").toLowerCase();
+
+    if (
+      id.includes("dualsense") ||
+      id.includes("dualshock") ||
+      id.includes("playstation") ||
+      id.includes("054c") ||
+      id.includes("sony")
+    ) {
+      return {
+        name: "PlayStation",
+        family: "playstation"
+      };
     }
-  };
 
-  const profileLabels = {
-    playstation: {
-      name: "PlayStation",
-      description: "Control PlayStation detectado",
-      buttons: {
-        0: "×", 1: "○", 2: "□", 3: "△",
-        4: "L1", 5: "R1", 6: "L2", 7: "R2",
-        8: "SHARE / CREATE", 9: "OPTIONS",
-        10: "L3", 11: "R3",
-        12: "↑", 13: "↓", 14: "←", 15: "→",
-        16: "PS", 17: "TOUCHPAD"
-      },
-      names: {
-        0: "Cruz", 1: "Círculo", 2: "Cuadrado", 3: "Triángulo",
-        4: "L1", 5: "R1", 6: "L2", 7: "R2",
-        8: "Share / Create", 9: "Options",
-        10: "L3", 11: "R3",
-        12: "Cruceta arriba", 13: "Cruceta abajo",
-        14: "Cruceta izquierda", 15: "Cruceta derecha",
-        16: "Botón PS / Home", 17: "Click del touchpad"
-      }
-    },
+    if (
+      id.includes("xbox") ||
+      id.includes("xinput") ||
+      id.includes("045e") ||
+      id.includes("microsoft")
+    ) {
+      return {
+        name: "Xbox",
+        family: "xbox"
+      };
+    }
 
-    xbox: {
-      name: "Xbox",
-      description: "Control Xbox detectado",
-      buttons: {
-        0: "A", 1: "B", 2: "X", 3: "Y",
-        4: "LB", 5: "RB", 6: "LT", 7: "RT",
-        8: "VIEW", 9: "MENU",
-        10: "L3", 11: "R3",
-        12: "↑", 13: "↓", 14: "←", 15: "→",
-        16: "XBOX"
-      },
-      names: {
-        0: "A", 1: "B", 2: "X", 3: "Y",
-        4: "LB", 5: "RB", 6: "LT", 7: "RT",
-        8: "View", 9: "Menu",
-        10: "Stick izquierdo L3", 11: "Stick derecho R3",
-        12: "Cruceta arriba", 13: "Cruceta abajo",
-        14: "Cruceta izquierda", 15: "Cruceta derecha",
-        16: "Botón Xbox / Home"
-      }
-    },
+    if (
+      id.includes("nintendo") ||
+      id.includes("057e") ||
+      id.includes("joy-con") ||
+      id.includes("joycon") ||
+      id.includes("pro controller")
+    ) {
+      return {
+        name: "Nintendo",
+        family: "nintendo"
+      };
+    }
 
-    nintendo: {
-      name: "Nintendo",
-      description: "Control Nintendo detectado",
-      buttons: {
-        0: "B", 1: "A", 2: "Y", 3: "X",
-        4: "L", 5: "R", 6: "ZL", 7: "ZR",
-        8: "-", 9: "+",
-        10: "L3", 11: "R3",
-        12: "↑", 13: "↓", 14: "←", 15: "→",
-        16: "HOME"
-      },
-      names: {
-        0: "B", 1: "A", 2: "Y", 3: "X",
-        4: "L", 5: "R", 6: "ZL", 7: "ZR",
-        8: "Botón menos", 9: "Botón más",
-        10: "Stick izquierdo", 11: "Stick derecho",
-        12: "Cruceta arriba", 13: "Cruceta abajo",
-        14: "Cruceta izquierda", 15: "Cruceta derecha",
-        16: "Home"
-      }
-    },
-
-    generic: {
+    return {
       name: "Genérico",
-      description: "Control detectado: identificación genérica",
-      buttons: {
-        0: "BOTÓN 1", 1: "BOTÓN 2", 2: "BOTÓN 3", 3: "BOTÓN 4",
-        4: "L1", 5: "R1", 6: "L2", 7: "R2",
-        8: "SHARE", 9: "OPTIONS",
-        10: "L3", 11: "R3",
-        12: "↑", 13: "↓", 14: "←", 15: "→",
-        16: "HOME"
-      },
-      names: {}
-    }
-  };
-
-  function getProfile(id) {
-    const value = String(id || "").toLowerCase();
-
-    if (
-      value.includes("dualsense") ||
-      value.includes("dualshock") ||
-      value.includes("playstation") ||
-      value.includes("054c") ||
-      value.includes("sony")
-    ) return "playstation";
-
-    if (
-      value.includes("xbox") ||
-      value.includes("xinput") ||
-      value.includes("045e") ||
-      value.includes("microsoft")
-    ) return "xbox";
-
-    if (
-      value.includes("nintendo") ||
-      value.includes("057e") ||
-      value.includes("joy-con") ||
-      value.includes("joycon") ||
-      value.includes("pro controller")
-    ) return "nintendo";
-
-    return "generic";
+      family: "generic"
+    };
   }
 
-  function shorten(value) {
-    value = String(value || "Gamepad");
-    return value.length > 38 ? value.slice(0, 35) + "…" : value;
+  function getButtonNames(profile) {
+    if (profile.family === "playstation") {
+      return [
+        "Cruz",
+        "Círculo",
+        "Cuadrado",
+        "Triángulo",
+        "L1",
+        "R1",
+        "L2",
+        "R2",
+        "Create / Share",
+        "Options",
+        "L3",
+        "R3",
+        "Cruceta arriba",
+        "Cruceta abajo",
+        "Cruceta izquierda",
+        "Cruceta derecha",
+        "Botón PS"
+      ];
+    }
+
+    if (profile.family === "xbox") {
+      return [
+        "A",
+        "B",
+        "X",
+        "Y",
+        "LB",
+        "RB",
+        "LT",
+        "RT",
+        "View",
+        "Menu",
+        "Stick izquierdo L3",
+        "Stick derecho R3",
+        "Cruceta arriba",
+        "Cruceta abajo",
+        "Cruceta izquierda",
+        "Cruceta derecha",
+        "Botón Xbox / Home"
+      ];
+    }
+
+    if (profile.family === "nintendo") {
+      return [
+        "B",
+        "A",
+        "Y",
+        "X",
+        "L",
+        "R",
+        "ZL",
+        "ZR",
+        "Minus",
+        "Plus",
+        "Stick izquierdo L3",
+        "Stick derecho R3",
+        "Cruceta arriba",
+        "Cruceta abajo",
+        "Cruceta izquierda",
+        "Cruceta derecha",
+        "Botón Home"
+      ];
+    }
+
+    return buttonNames;
+  }
+
+  // ==========================================
+  // REINICIAR PRUEBAS
+  // ==========================================
+
+  function resetTestedButtons() {
+    testedButtons.clear();
+
+    Object.keys(buttonMaxValues).forEach((key) => {
+      delete buttonMaxValues[key];
+    });
+
+    $$(".test-button").forEach((button) => {
+      button.classList.remove("tested", "pressed", "active");
+    });
+
+    updateCounter();
+  }
+
+  // ==========================================
+  // CONTADOR
+  // ==========================================
+
+  function getVisibleButtons() {
+    return $$(".test-button[data-button]").filter((element) => {
+      return !element.closest("[hidden]");
+    });
+  }
+
+  function updateCounter() {
+    const visibleButtons = getVisibleButtons();
+
+    const total = visibleButtons.length;
+
+    const tested = visibleButtons.filter((element) => {
+      const index = Number(element.dataset.button);
+      return testedButtons.has(index);
+    }).length;
+
+    const counter = $("#buttonCounter");
+    const progress = $("#progressFill");
+
+    if (counter) {
+      counter.textContent = `${tested} / ${total}`;
+    }
+
+    if (progress) {
+      progress.style.width =
+        `${total ? (tested / total) * 100 : 0}%`;
+    }
+
+    const alternativeCounter = $("#buttonsCounter");
+
+    if (alternativeCounter) {
+      alternativeCounter.textContent = `${tested} / ${total}`;
+    }
+  }
+
+  // ==========================================
+  // PERFIL Y BOTONES VISIBLES
+  // ==========================================
+
+  function updateButtonLayout(pad) {
+    const profile = getProfile(pad);
+
+    const profileLabel = $("#controllerProfile");
+
+    if (profileLabel) {
+      profileLabel.textContent = profile.name;
+    }
+
+    const touchpadRow = $("#touchpadRow");
+
+    if (touchpadRow) {
+      touchpadRow.hidden = profile.family !== "playstation";
+    }
+
+    const names = getButtonNames(profile);
+
+    $$(".test-button[data-button]").forEach((element) => {
+      const index = Number(element.dataset.button);
+
+      const label = element.querySelector(
+        ".button-label, .button-name, span"
+      );
+
+      if (label && names[index]) {
+        label.textContent = names[index];
+      }
+    });
+
+    updateCounter();
+  }
+
+  // ==========================================
+  // CONEXIÓN
+  // ==========================================
+
+  function setConnected(pad) {
+    gamepad = pad;
+    activeGamepadId = pad.id;
+
+    resetTestedButtons();
+
+    leftCircularity = null;
+    rightCircularity = null;
+
+    const status = $("#connectionStatus");
+
+    if (status) {
+      status.textContent = "Control conectado";
+    }
+
+    const name = $("#controllerName");
+
+    if (name) {
+      name.textContent = pad.id;
+    }
+
+    updateButtonLayout(pad);
+
+    const connected = $("#connectedStatus");
+
+    if (connected) {
+      connected.textContent = "CONECTADO";
+    }
+  }
+
+  function disconnect() {
+    gamepad = null;
+    activeGamepadId = "";
+
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = null;
+    }
+
+    const status = $("#connectionStatus");
+
+    if (status) {
+      status.textContent = "Esperando control...";
+    }
+
+    const name = $("#controllerName");
+
+    if (name) {
+      name.textContent = "Sin conectar";
+    }
+
+    const connected = $("#connectedStatus");
+
+    if (connected) {
+      connected.textContent = "DESCONECTADO";
+    }
   }
 
   function getAvailablePad() {
-    if (!navigator.getGamepads) return null;
+    if (!navigator.getGamepads) {
+      return null;
+    }
 
     const pads = navigator.getGamepads();
 
-    if (activeIndex !== null && pads[activeIndex]) {
-      return pads[activeIndex];
-    }
-
     for (const pad of pads) {
-      if (pad) return pad;
+      if (pad && pad.connected) {
+        return pad;
+      }
     }
 
     return null;
   }
 
-  function updateButtonLayout(pad) {
-    const profile = profileLabels[currentProfile];
+  window.addEventListener("gamepadconnected", (event) => {
+    setConnected(event.gamepad);
 
-    document.querySelectorAll(".test-button[data-button]").forEach(el => {
-      const index = Number(el.dataset.button);
+    if (!animationFrame) {
+      loop();
+    }
+  });
 
-      if (index === 17) {
-        const showTouchpad =
-          currentProfile === "playstation" &&
-          pad.buttons.length > 17;
+  window.addEventListener("gamepaddisconnected", () => {
+    disconnect();
+  });
 
-        $("touchpadRow").hidden = !showTouchpad;
-        el.hidden = !showTouchpad;
+  // ==========================================
+  // REGISTRO DE BOTONES
+  // ==========================================
+
+  function registerButton(index, button) {
+    const rawValue = Number(button.value) || 0;
+
+    // Algunos navegadores informan pressed=true
+    // aunque el valor analógico aparezca como 0.
+    const currentValue = button.pressed
+      ? Math.max(rawValue, 1)
+      : rawValue;
+
+    // Guardamos el valor máximo de toda la sesión.
+    buttonMaxValues[index] = Math.max(
+      buttonMaxValues[index] || 0,
+      currentValue
+    );
+
+    // Registramos el botón como probado.
+    if (button.pressed || rawValue > 0.1) {
+      testedButtons.add(index);
+    }
+
+    const element = $(
+      `.test-button[data-button="${index}"]`
+    );
+
+    if (element) {
+      if (testedButtons.has(index)) {
+        element.classList.add("tested");
       }
 
-      if (profile.buttons[index] !== undefined) {
-        el.textContent = profile.buttons[index];
+      if (button.pressed || rawValue > 0.1) {
+        element.classList.add("pressed", "active");
+      } else {
+        element.classList.remove("pressed", "active");
       }
-    });
-
-    const visibleButtons = [...document.querySelectorAll(".test-button[data-button]")]
-      .filter(el => !el.hidden && !el.closest("[hidden]"));
-
-    expectedButtons = visibleButtons.length;
-
-    $("buttonCount").textContent =
-      `${testedButtons.size} / ${expectedButtons}`;
-
-    updateCounter();
-  }
-
-  function updateCounter() {
-    $("buttonCount").textContent =
-      `${testedButtons.size} / ${expectedButtons}`;
-
-    $("summaryButtons").textContent = String(testedButtons.size);
-  }
-
-  function resetTestedButtons() {
-    testedButtons.clear();
-
-    document.querySelectorAll(".test-button").forEach(el => {
-      el.classList.remove("active", "tested");
-    });
-
-    updateCounter();
-  }
-
-  function setConnected(gamepad) {
-    if (!gamepad) return;
-
-    activeIndex = gamepad.index;
-    currentProfile = getProfile(gamepad.id);
-
-    status.textContent = "Control conectado";
-    statusPill.classList.add("connected");
-
-    const profile = profileLabels[currentProfile];
-
-    $("connectHelp").textContent = gamepad.id || "Control detectado";
-    $("controllerProfile").textContent = profile.description;
-
-    $("summaryController").textContent =
-      shorten(gamepad.id || profile.name);
-
-    $("summaryAxes").textContent = String(gamepad.axes.length);
-    $("testState").textContent = "CONECTADO";
-
-    updateButtonLayout(gamepad);
-
-    driftButton.disabled = false;
-    reportButton.disabled = false;
-
-    $("leftCircularityButton").disabled = false;
-    $("rightCircularityButton").disabled = false;
-
-    startButton.textContent = "Control detectado";
-    startButton.disabled = true;
-
-    if (animationId === null) {
-      animationId = requestAnimationFrame(loop);
-    }
-  }
-
-  function disconnect() {
-    activeIndex = null;
-
-    if (animationId !== null) {
-      cancelAnimationFrame(animationId);
-    }
-
-    animationId = null;
-
-    status.textContent = "Sin control conectado";
-    statusPill.classList.remove("connected");
-
-    $("summaryController").textContent = "No detectado";
-    $("summaryAxes").textContent = "—";
-    $("controllerProfile").textContent = "Esperando identificación del control…";
-    $("testState").textContent = "PENDIENTE";
-
-    startButton.disabled = false;
-    startButton.textContent = "Comenzar prueba";
-
-    driftButton.disabled = true;
-    reportButton.disabled = true;
-
-    $("leftCircularityButton").disabled = true;
-    $("rightCircularityButton").disabled = true;
-
-    $("touchpadRow").hidden = true;
-
-    resetTestedButtons();
-
-    updateStick("leftDot", 0, 0);
-    updateStick("rightDot", 0, 0);
-
-    $("leftCoords").textContent = "X 0.00 · Y 0.00";
-    $("rightCoords").textContent = "X 0.00 · Y 0.00";
-
-    $("l2Meter").style.width = "0%";
-    $("r2Meter").style.width = "0%";
-    $("l2Value").textContent = "0%";
-    $("r2Value").textContent = "0%";
-
-    $("driftResult").textContent = "Esperando medición.";
-
-    lastSnapshot = null;
-    driftTimer = false;
-    driftSamples = [];
-    expectedButtons = 0;
-
-    resetCircularity("left");
-    resetCircularity("right");
-  }
-
-  function currentPad() {
-    return getAvailablePad();
-  }
-
-  function loop() {
-    const pad = currentPad();
-
-    if (!pad) {
-      disconnect();
-      return;
-    }
-
-    if (pad.index !== activeIndex) {
-      setConnected(pad);
-    }
-
-    const profileChanged = getProfile(pad.id) !== currentProfile;
-
-    if (profileChanged) {
-      currentProfile = getProfile(pad.id);
-      updateButtonLayout(pad);
-    }
-
-    pad.buttons.forEach((button, index) => {
-      const el = document.querySelector(`[data-button="${index}"]`);
-      const value = Number(button.value) || 0;
-      const pressed = button.pressed || value > 0.5;
-
-      if (el && !el.hidden) {
-        if (value > 0.1 || pressed) {
-          testedButtons.add(index);
-          el.classList.add("tested");
-        }
-
-        el.classList.toggle("active", pressed);
-      }
-
-      if (index === 6 || index === 7) {
-        const pct = Math.round(value * 100);
-        const side = index === 6 ? "l2" : "r2";
-
-        $(side + "Meter").style.width = pct + "%";
-        $(side + "Value").textContent = pct + "%";
-      }
-    });
-
-    updateCounter();
-
-    const x0 = pad.axes[0] ?? 0;
-    const y0 = pad.axes[1] ?? 0;
-    const x1 = pad.axes[2] ?? 0;
-    const y1 = pad.axes[3] ?? 0;
-
-    $("leftCoords").textContent =
-      `X ${x0.toFixed(2)} · Y ${y0.toFixed(2)}`;
-
-    $("rightCoords").textContent =
-      `X ${x1.toFixed(2)} · Y ${y1.toFixed(2)}`;
-
-    updateStick("leftDot", x0, y0);
-    updateStick("rightDot", x1, y1);
-
-    if (circularity.left.active) {
-      circularity.left.points.push({ x: x0, y: y0 });
-      drawCircularity("left");
-    }
-
-    if (circularity.right.active) {
-      circularity.right.points.push({ x: x1, y: y1 });
-      drawCircularity("right");
-    }
-
-    const names = profileLabels[currentProfile].names;
-
-    lastSnapshot = {
-      id: pad.id,
-      profile: profileLabels[currentProfile].name,
-      buttons: pad.buttons.map((b, i) => {
-        const value = Number((Number(b.value) || 0).toFixed(3));
-
-        return {
-          index: i,
-          name: names[i] || `Botón ${i}`,
-          value,
-          percent: Math.round(value * 100),
-          pressed: Boolean(b.pressed || value > 0.5),
-          tested: testedButtons.has(i)
-        };
-      }),
-      testedCount: testedButtons.size,
-      expectedButtons,
-      axes: Array.from(pad.axes).map(v => Number(v.toFixed(3))),
-      circularity: {
-        left: circularity.left.result,
-        right: circularity.right.result
-      }
-    };
-
-    if (driftTimer) {
-      driftSamples.push({ x0, y0, x1, y1 });
-    }
-
-    animationId = requestAnimationFrame(loop);
-  }
-
-  function updateStick(id, x, y) {
-    const px = 50 + Math.max(-1, Math.min(1, x)) * 43;
-    const py = 50 + Math.max(-1, Math.min(1, y)) * 43;
-
-    $(id).style.left = px + "%";
-    $(id).style.top = py + "%";
-  }
-
-  // CIRCULARIDAD
-
-  function startCircularity(side) {
-    const test = circularity[side];
-    const pad = getAvailablePad();
-
-    if (!pad) {
-      $(stickConfig[side].result).textContent =
-        "No se detecta el control. Presioná un botón y volvé a intentar.";
-      return;
-    }
-
-    if (animationId === null) {
-      setConnected(pad);
-    }
-
-    test.active = true;
-    test.points = [];
-    test.result = null;
-
-    $(stickConfig[side].button).textContent = "Finalizar test";
-
-    $(stickConfig[side].result).textContent =
-      "Prueba en curso. Girá el stick por todo el borde.";
-
-    drawCircularity(side);
-  }
-
-  function finishCircularity(side) {
-    const test = circularity[side];
-
-    if (!test.active) return;
-
-    test.active = false;
-    test.result = calculateCircularity(test.points);
-
-    $(stickConfig[side].button).textContent = "Repetir test";
-
-    if (!test.result.valid) {
-      $(stickConfig[side].result).textContent = test.result.message;
-    } else {
-      $(stickConfig[side].result).textContent =
-        `Circularidad: ${test.result.score}% · Cobertura: ${test.result.coverage}%`;
-    }
-
-    drawCircularity(side);
-  }
-
-  function resetCircularity(side) {
-    const test = circularity[side];
-
-    test.active = false;
-    test.points = [];
-    test.result = null;
-
-    $(stickConfig[side].button).textContent = "Iniciar test";
-    $(stickConfig[side].result).textContent = "Circularidad pendiente.";
-
-    drawCircularity(side);
-  }
-
-  function calculateCircularity(points) {
-    const sectors = new Array(72).fill(null);
-    let validPoints = 0;
-
-    points.forEach(point => {
-      const radius = Math.sqrt(point.x * point.x + point.y * point.y);
-
-      if (radius < 0.50) return;
-
-      validPoints++;
-
-      let degrees = Math.atan2(-point.y, point.x) * 180 / Math.PI;
-
-      if (degrees < 0) degrees += 360;
-
-      const sector = Math.floor(degrees / 5);
-
-      if (sectors[sector] === null || radius > sectors[sector]) {
-        sectors[sector] = radius;
-      }
-    });
-
-    const covered = sectors.filter(value => value !== null);
-    const coverage = Math.round(covered.length / 72 * 100);
-
-    if (validPoints < 100 || coverage < 70) {
-      return {
-        valid: false,
-        coverage,
-        samples: validPoints,
-        message: `Cobertura insuficiente (${coverage}%). Girá el stick más ampliamente por todo el borde.`
-      };
-    }
-
-    const minRadius = Math.min(...covered);
-    const maxRadius = Math.max(...covered);
-
-    if (maxRadius <= 0) {
-      return {
-        valid: false,
-        coverage,
-        message: "No se pudo calcular la circularidad."
-      };
     }
 
     return {
-      valid: true,
-      score: Math.round(minRadius / maxRadius * 100),
-      coverage,
-      samples: validPoints
+      index,
+      value: Number(rawValue.toFixed(3)),
+      maxValue: Number(
+        (buttonMaxValues[index] || 0).toFixed(3)
+      ),
+      percent: Math.round(
+        (buttonMaxValues[index] || 0) * 100
+      ),
+      pressedNow: Boolean(button.pressed),
+      tested: testedButtons.has(index)
     };
   }
 
-  function drawCircularity(side) {
-    const canvas = $(stickConfig[side].canvas);
+  // ==========================================
+  // LOOP PRINCIPAL
+  // ==========================================
 
-    if (!canvas) return;
+  function loop() {
+    const pad = getAvailablePad();
 
-    const rect = canvas.getBoundingClientRect();
-
-    if (!rect.width || !rect.height) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const width = Math.round(rect.width * dpr);
-    const height = Math.round(rect.height * dpr);
-
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
-    }
-
-    const ctx = canvas.getContext("2d");
-
-    ctx.clearRect(0, 0, width, height);
-
-    const test = circularity[side];
-
-    if (test.points.length < 2) return;
-
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const radius = Math.min(width, height) * 0.43;
-
-    const sectors = new Array(72).fill(null);
-
-    test.points.forEach(point => {
-      const distance = Math.sqrt(point.x * point.x + point.y * point.y);
-
-      if (distance < 0.08) return;
-
-      let degrees = Math.atan2(-point.y, point.x) * 180 / Math.PI;
-
-      if (degrees < 0) degrees += 360;
-
-      const sector = Math.floor(degrees / 5);
-      const value = Math.min(1, distance);
-
-      if (sectors[sector] === null || value > sectors[sector]) {
-        sectors[sector] = value;
-      }
-    });
-
-    const valid = sectors
-      .map((value, index) => ({ value, index }))
-      .filter(item => item.value !== null);
-
-    if (valid.length < 2) return;
-
-    // Completa sectores vacíos con el valor del sector válido más cercano.
-    const filled = sectors.map((value, index) => {
-      if (value !== null) return value;
-
-      let nearest = null;
-      let nearestDistance = Infinity;
-
-      valid.forEach(item => {
-        const direct = Math.abs(item.index - index);
-        const distance = Math.min(direct, 72 - direct);
-
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearest = item.value;
-        }
-      });
-
-      return nearest || 0;
-    });
-
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-
-    for (let i = 0; i < 72; i++) {
-      const angle = (i * 5) * Math.PI / 180;
-      const distance = filled[i] * radius;
-
-      const px = centerX + Math.cos(angle) * distance;
-      const py = centerY - Math.sin(angle) * distance;
-
-      ctx.lineTo(px, py);
-    }
-
-    ctx.closePath();
-
-    const color = test.active ? "#18d7e8" : "#64f59a";
-
-    ctx.fillStyle = test.active
-      ? "rgba(24, 215, 232, 0.38)"
-      : "rgba(100, 245, 154, 0.38)";
-
-    ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(2, dpr * 2);
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 8 * dpr;
-
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.shadowBlur = 0;
-  }
-
-  $("leftCircularityButton").addEventListener("click", () => {
-    if (circularity.left.active) finishCircularity("left");
-    else startCircularity("left");
-  });
-
-  $("rightCircularityButton").addEventListener("click", () => {
-    if (circularity.right.active) finishCircularity("right");
-    else startCircularity("right");
-  });
-
-  // CONEXIÓN
-
-  startButton.addEventListener("click", () => {
-    if (!("getGamepads" in navigator)) {
-      $("connectHelp").textContent =
-        "Este navegador no ofrece Gamepad API. Probá Chrome o Edge actualizado.";
+    if (!pad) {
+      disconnect();
       return;
     }
 
-    $("connectHelp").textContent =
-      "Conectá el control y presioná cualquier botón.";
-
-    const pad = currentPad();
-
-    if (pad) {
+    if (
+      !gamepad ||
+      pad.index !== gamepad.index ||
+      pad.id !== activeGamepadId
+    ) {
       setConnected(pad);
     }
-  });
 
-  window.addEventListener("gamepadconnected", event => {
-    setConnected(event.gamepad);
-  });
+    gamepad = pad;
 
-  window.addEventListener("gamepaddisconnected", event => {
-    if (event.gamepad.index === activeIndex) {
-      disconnect();
-    }
-  });
+    const profile = getProfile(pad);
+    const names = getButtonNames(profile);
 
-  // DRIFT
-
-  driftButton.addEventListener("click", () => {
-    if (driftTimer) return;
-
-    driftSamples = [];
-    driftButton.disabled = true;
-
-    $("driftResult").textContent =
-      "Midiendo durante 5 segundos… No toques los sticks.";
-
-    const started = performance.now();
-
-    driftTimer = true;
-
-    const finish = () => {
-      driftTimer = false;
-      driftButton.disabled = false;
-
-      if (!driftSamples.length) {
-        $("driftResult").textContent =
-          "No se recibieron datos suficientes.";
-        return;
-      }
-
-      const max = key =>
-        Math.max(...driftSamples.map(s => Math.abs(s[key])));
-
-      const values = {
-        x0: max("x0"),
-        y0: max("y0"),
-        x1: max("x1"),
-        y1: max("y1")
+    const buttons = pad.buttons.map((button, index) => {
+      return {
+        ...registerButton(index, button),
+        name: names[index] || `Botón ${index}`
       };
+    });
 
-      const peak = Math.max(...Object.values(values));
+    const axes = Array.from(pad.axes || []).map((axis) => {
+      return Number((Number(axis) || 0).toFixed(3));
+    });
 
-      const label = peak < 0.08
-        ? "Centrado estable en esta medición"
-        : peak < 0.18
-          ? "Movimiento leve detectado: conviene repetir"
-          : "Desviación importante detectada: requiere revisión";
-
-      $("driftResult").textContent =
-        `${label}. Desviación máxima: ${peak.toFixed(3)}.`;
-
-      $("testState").textContent =
-        peak < 0.08 ? "CENTRADO ESTABLE" : "REVISAR STICKS";
-
-      if (lastSnapshot) {
-        lastSnapshot.drift = {
-          peak: Number(peak.toFixed(3)),
-          axes: values,
-          result: label
-        };
-      }
+    lastSnapshot = {
+      id: pad.id,
+      profile: profile.name,
+      family: profile.family,
+      buttons,
+      axes,
+      timestamp: Date.now()
     };
 
-    const check = () => {
-      if (!driftTimer) return;
+    updateCounter();
+    updateJoystickDisplays(axes);
 
-      if (performance.now() - started >= 5000) {
-        finish();
-      } else {
-        setTimeout(check, 100);
-      }
-    };
+    animationFrame = requestAnimationFrame(loop);
+  }
 
-    setTimeout(check, 100);
-  });
+  // ==========================================
+  // JOYSTICKS
+  // ==========================================
 
-  // INFORME TXT
-
-  reportButton.addEventListener("click", () => {
-    if (!lastSnapshot) return;
-
-    const lines = [
-      "BUCEONET VIDEOJUEGOS - INFORME DE TESTER",
-      `Fecha: ${new Date().toLocaleString("es-UY")}`,
-      `Control: ${lastSnapshot.id}`,
-      `Tipo detectado: ${lastSnapshot.profile}`,
-      `Botones probados: ${testedButtons.size} / ${expectedButtons}`,
-      "",
-      "BOTONES:"
+  function updateJoystickDisplays(axes) {
+    const values = [
+      axes[0] || 0,
+      axes[1] || 0,
+      axes[2] || 0,
+      axes[3] || 0
     ];
 
-    lastSnapshot.buttons.forEach(button => {
-      const visible = document.querySelector(
-        `[data-button="${button.index}"]`
-      );
+    const ids = [
+      "#leftX",
+      "#leftY",
+      "#rightX",
+      "#rightY"
+    ];
 
-      if (!visible || visible.hidden || visible.closest("[hidden]")) {
+    ids.forEach((selector, index) => {
+      const element = $(selector);
+
+      if (element) {
+        element.textContent = values[index].toFixed(3);
+      }
+    });
+
+    drawJoystick(leftCanvas, values[0], values[1]);
+    drawJoystick(rightCanvas, values[2], values[3]);
+  }
+
+  function drawJoystick(canvas, x, y) {
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+
+    const width = canvas.width;
+    const height = canvas.height;
+
+    const cx = width / 2;
+    const cy = height / 2;
+    const radius = Math.min(width, height) * 0.38;
+
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = "#34515c";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(cx - radius, cy);
+    ctx.lineTo(cx + radius, cy);
+    ctx.moveTo(cx, cy - radius);
+    ctx.lineTo(cx, cy + radius);
+    ctx.strokeStyle = "#29414b";
+    ctx.stroke();
+
+    const px = cx + x * radius;
+    const py = cy + y * radius;
+
+    ctx.beginPath();
+    ctx.arc(px, py, 8, 0, Math.PI * 2);
+    ctx.fillStyle = "#00ff9d";
+    ctx.fill();
+  }
+
+  // ==========================================
+  // CIRCULARIDAD
+  // ==========================================
+
+  function runCircularity(side) {
+    const startIndex = side === "left" ? 0 : 2;
+
+    const samples = [];
+    const sectors = 36;
+    const totalSamples = 100;
+
+    let count = 0;
+
+    const canvas = side === "left"
+      ? leftCanvas
+      : rightCanvas;
+
+    const button = side === "left"
+      ? leftCircularityButton
+      : rightCircularityButton;
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Probando...";
+    }
+
+    const capture = () => {
+      const pad = getAvailablePad();
+
+      if (!pad) {
+        if (button) {
+          button.disabled = false;
+          button.textContent = "Reintentar prueba";
+        }
         return;
       }
 
-      const state = button.pressed
-        ? `PULSADO (${button.percent}%)`
-        : `SIN PULSAR (${button.percent}%)`;
+      const x = Number(pad.axes[startIndex] || 0);
+      const y = Number(pad.axes[startIndex + 1] || 0);
 
-      lines.push(
-        `${button.name}: ${button.tested ? "PROBADO" : "NO PROBADO"} | ${state}`
+      const distance = Math.sqrt(x * x + y * y);
+
+      if (distance > 0.15) {
+        const angle = Math.atan2(y, x);
+
+        samples.push({
+          angle,
+          distance
+        });
+      }
+
+      count++;
+
+      if (count < totalSamples) {
+        setTimeout(capture, 20);
+      } else {
+        finishCircularity(side, samples, button);
+      }
+    };
+
+    capture();
+  }
+
+  function finishCircularity(side, samples, button) {
+    const sectors = 36;
+    const values = new Array(sectors).fill(0);
+
+    samples.forEach((sample) => {
+      let angle = sample.angle;
+
+      if (angle < 0) {
+        angle += Math.PI * 2;
+      }
+
+      const sector = Math.floor(
+        (angle / (Math.PI * 2)) * sectors
+      );
+
+      const index = Math.min(sectors - 1, sector);
+
+      values[index] = Math.max(
+        values[index],
+        sample.distance
       );
     });
 
-    lines.push(
-      "",
-      "EJES:",
-      ...lastSnapshot.axes.map((value, index) => `Eje ${index}: ${value}`)
+    const occupied = values.filter((value) => value > 0).length;
+
+    const coverage = Math.round(
+      (occupied / sectors) * 100
     );
 
-    lines.push("", "TEST DE CIRCULARIDAD:");
+    const maximum = Math.max(...values, 0);
 
-    ["left", "right"].forEach(side => {
-      const result = circularity[side].result;
-      const name = side === "left"
-        ? "Stick izquierdo"
-        : "Stick derecho";
+    const minimum = Math.min(
+      ...values.filter((value) => value > 0)
+    );
 
-      if (!result) {
-        lines.push(`${name}: NO REALIZADO`);
-      } else if (!result.valid) {
-        lines.push(`${name}: ${result.message}`);
-      } else {
-        lines.push(
-          `${name}: ${result.score}% de circularidad`,
-          `Cobertura: ${result.coverage}%`,
-          `Muestras: ${result.samples}`
-        );
-      }
-    });
+    const circularity = maximum > 0
+      ? Math.round((minimum / maximum) * 100)
+      : 0;
 
-    if (lastSnapshot.drift) {
-      lines.push(
-        "",
-        "PRUEBA DE CENTRADO:",
-        lastSnapshot.drift.result,
-        `Desviación máxima: ${lastSnapshot.drift.peak}`
-      );
+    const result = {
+      circularity,
+      coverage,
+      samples: samples.length
+    };
+
+    if (side === "left") {
+      leftCircularity = result;
+    } else {
+      rightCircularity = result;
     }
 
-    lines.push(
-      "",
-      "Nota: resultado orientativo basado en señales recibidas por el navegador. No reemplaza una revisión técnica."
+    drawCircularity(side, values);
+
+    const resultElement = $(
+      side === "left"
+        ? "#leftCircularityResult"
+        : "#rightCircularityResult"
     );
 
+    if (resultElement) {
+      resultElement.textContent =
+        `${circularity}% circularidad | ${coverage}% cobertura`;
+    }
+
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Repetir prueba";
+    }
+  }
+
+  function drawCircularity(side, values) {
+    const canvas = side === "left"
+      ? leftCanvas
+      : rightCanvas;
+
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+
+    const width = canvas.width;
+    const height = canvas.height;
+
+    const cx = width / 2;
+    const cy = height / 2;
+    const radius = Math.min(width, height) * 0.38;
+
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = "#34515c";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const points = [];
+
+    for (let i = 0; i < 72; i++) {
+      const angle = (i / 72) * Math.PI * 2;
+
+      const sector = Math.floor(i / 2);
+
+      const distance = values[sector] || 0;
+
+      const r = radius * Math.min(distance, 1);
+
+      points.push({
+        x: cx + Math.cos(angle) * r,
+        y: cy + Math.sin(angle) * r
+      });
+    }
+
+    if (points.some((point) => point.x !== cx || point.y !== cy)) {
+      ctx.beginPath();
+
+      points.forEach((point, index) => {
+        if (index === 0) {
+          ctx.moveTo(point.x, point.y);
+        } else {
+          ctx.lineTo(point.x, point.y);
+        }
+      });
+
+      ctx.closePath();
+
+      ctx.fillStyle = "rgba(0, 255, 157, 0.25)";
+      ctx.fill();
+
+      ctx.strokeStyle = "#00ff9d";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  if (leftCircularityButton) {
+    leftCircularityButton.addEventListener("click", () => {
+      runCircularity("left");
+    });
+  }
+
+  if (rightCircularityButton) {
+    rightCircularityButton.addEventListener("click", () => {
+      runCircularity("right");
+    });
+  }
+
+  // ==========================================
+  // PRUEBA DE DRIFT
+  // ==========================================
+
+  const driftButton = $("#driftButton");
+
+  if (driftButton) {
+    driftButton.addEventListener("click", () => {
+      if (driftTest.active) return;
+
+      driftTest.active = true;
+      driftTest.startTime = Date.now();
+      driftTest.samples = [];
+
+      driftButton.disabled = true;
+      driftButton.textContent = "Midiendo...";
+
+      const output = $("#driftResult");
+
+      if (output) {
+        output.textContent =
+          "Dejá el control quieto durante 5 segundos...";
+      }
+
+      const collect = () => {
+        const pad = getAvailablePad();
+
+        if (!pad) return;
+
+        const axes = Array.from(pad.axes || []);
+
+        driftTest.samples.push(axes);
+
+        if (Date.now() - driftTest.startTime < 5000) {
+          driftTest.timer = setTimeout(collect, 50);
+        } else {
+          finishDriftTest();
+        }
+      };
+
+      collect();
+    });
+  }
+
+  function finishDriftTest() {
+    driftTest.active = false;
+
+    const axisCount = Math.max(
+      0,
+      ...driftTest.samples.map((sample) => sample.length)
+    );
+
+    const maximums = [];
+
+    for (let i = 0; i < axisCount; i++) {
+      let maximum = 0;
+
+      driftTest.samples.forEach((sample) => {
+        maximum = Math.max(
+          maximum,
+          Math.abs(Number(sample[i] || 0))
+        );
+      });
+
+      maximums.push(maximum);
+    }
+
+    const result = maximums
+      .map((value) => value.toFixed(3))
+      .join(", ");
+
+    const output = $("#driftResult");
+
+    if (output) {
+      output.textContent =
+        `Valores máximos registrados: ${result}`;
+    }
+
+    if (driftButton) {
+      driftButton.disabled = false;
+      driftButton.textContent = "Repetir prueba de drift";
+    }
+  }
+
+  // ==========================================
+  // INFORME TXT
+  // ==========================================
+
+  function generateReport() {
+    const pad = getAvailablePad();
+
+    if (!pad || !lastSnapshot) {
+      alert("Primero conectá un control.");
+      return;
+    }
+
+    const profile = getProfile(pad);
+    const names = getButtonNames(profile);
+
+    let report = "";
+
+    report += "BUCEONET VIDEOJUEGOS - INFORME DE TESTER\n";
+    report += "Fecha: " + new Date().toLocaleString("es-UY") + "\n";
+    report += "Control: " + pad.id + "\n";
+    report += "Tipo detectado: " + profile.name + "\n\n";
+
+    const visibleButtons = getVisibleButtons();
+
+    const total = visibleButtons.length;
+
+    const tested = visibleButtons.filter((element) => {
+      return testedButtons.has(Number(element.dataset.button));
+    }).length;
+
+    report += `Botones probados: ${tested} / ${total}\n\n`;
+    report += "BOTONES:\n";
+
+    pad.buttons.forEach((button, index) => {
+      const maxValue = buttonMaxValues[index] || 0;
+
+      const percent = Math.round(maxValue * 100);
+
+      const wasTested = testedButtons.has(index);
+
+      const name = names[index] || `Botón ${index}`;
+
+      const status = wasTested
+        ? "PROBADO"
+        : "NO PROBADO";
+
+      const valueText = wasTested
+        ? `PULSADO (${percent}%)`
+        : "SIN PULSAR (0%)";
+
+      report +=
+        `${name}: ${status} | ${valueText}\n`;
+    });
+
+    report += "\nEJES:\n";
+
+    report += lastSnapshot.axes
+      .map((axis) => axis.toFixed(3))
+      .join(", ");
+
+    report += "\n\nTEST CIRCULARIDAD:\n";
+
+    if (leftCircularity) {
+      report +=
+        `Stick izquierdo: ${leftCircularity.circularity}% circularidad, ` +
+        `${leftCircularity.coverage}% cobertura, ` +
+        `${leftCircularity.samples} muestras\n`;
+    } else {
+      report += "Stick izquierdo: No probado\n";
+    }
+
+    if (rightCircularity) {
+      report +=
+        `Stick derecho: ${rightCircularity.circularity}% circularidad, ` +
+        `${rightCircularity.coverage}% cobertura, ` +
+        `${rightCircularity.samples} muestras\n`;
+    } else {
+      report += "Stick derecho: No probado\n";
+    }
+
+    report += "\n";
+    report += "BUCEONET VIDEOJUEGOS\n";
+    report += "Gracias por confiar en nuestro servicio.\n";
+
     const blob = new Blob(
-      [lines.join("\n")],
+      [report],
       { type: "text/plain;charset=utf-8" }
     );
 
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
 
-    a.href = url;
-    a.download = "informe-buceonet-tester.txt";
-    a.click();
+    const link = document.createElement("a");
 
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
+    link.href = url;
+    link.download = "informe-buceonet-tester.txt";
 
-  // WHATSAPP
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
 
-  $("whatsappButton").addEventListener("click", () => {
-    const message = encodeURIComponent(
-      "Hola Buceonet, probé mi control con el Tester y quisiera consultar por una revisión."
-    );
+    URL.revokeObjectURL(url);
+  }
 
-    window.open(
-      `https://wa.me/59899525777?text=${message}`,
-      "_blank"
-    );
-  });
+  const reportButton = $("#downloadReportButton") ||
+    $("#reportButton");
 
-  // SEGURIDAD HTTPS
+  if (reportButton) {
+    reportButton.addEventListener("click", generateReport);
+  }
 
-  if (!window.isSecureContext && location.hostname !== "localhost") {
-    $("connectHelp").textContent =
-      "Para detectar controles, publicá esta página en HTTPS y usá un navegador compatible.";
+  // ==========================================
+  // WHATSAPP BUCEONET
+  // ==========================================
+
+  const whatsappButton = $("#whatsappButton");
+
+  if (whatsappButton) {
+    whatsappButton.addEventListener("click", () => {
+      const message = encodeURIComponent(
+        "Hola Buceonet Videojuegos. Quiero consultar por el diagnóstico de mi control."
+      );
+
+      window.open(
+        `https://wa.me/59899525777?text=${message}`,
+        "_blank"
+      );
+    });
+  }
+
+  // ==========================================
+  // INICIO
+  // ==========================================
+
+  updateCounter();
+
+  const initialPad = getAvailablePad();
+
+  if (initialPad) {
+    setConnected(initialPad);
+    loop();
   }
 
 })();
