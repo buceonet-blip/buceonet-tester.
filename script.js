@@ -859,7 +859,7 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
-  // WHATSAPP
+  // WHATSAPP DEL TESTER
 
   $("whatsappButton").addEventListener("click", () => {
     const message = encodeURIComponent(
@@ -871,6 +871,223 @@
       "_blank"
     );
   });
+
+  // AGENDA BUCEONET
+
+  const agendaDays = $("agendaDays");
+  const agendaStatus = $("agendaStatus");
+  const agendaSlotsContainer = $("agendaSlotsContainer");
+  const agendaSlots = $("agendaSlots");
+  const agendaSelectedDate = $("agendaSelectedDate");
+
+  let agendaData = [];
+  let selectedAgendaDate = null;
+
+  function formatAgendaDate(dateString) {
+    const parts = dateString.split("-").map(Number);
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+
+    return date.toLocaleDateString("es-UY", {
+      weekday: "long",
+      day: "numeric",
+      month: "long"
+    });
+  }
+
+  function formatShortDate(dateString) {
+    const parts = dateString.split("-").map(Number);
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+
+    return {
+      day: String(date.getDate()),
+      weekday: date.toLocaleDateString("es-UY", {
+        weekday: "short"
+      }).replace(".", "")
+    };
+  }
+
+  function selectAgendaDay(dateString) {
+    selectedAgendaDate = dateString;
+
+    const dayData = agendaData.find(day => day.fecha === dateString);
+
+    if (!dayData) return;
+
+    document.querySelectorAll(".agenda-day").forEach(button => {
+      button.classList.toggle(
+        "selected",
+        button.dataset.date === dateString
+      );
+    });
+
+    agendaSlots.innerHTML = "";
+    agendaSelectedDate.textContent = formatAgendaDate(dateString);
+    agendaSlotsContainer.hidden = false;
+
+    if (dayData.cerrado || !dayData.horarios.length) {
+      const closed = document.createElement("div");
+      closed.className = "agenda-closed";
+      closed.textContent = "Cerrado";
+      agendaSlots.appendChild(closed);
+      return;
+    }
+
+    dayData.horarios.forEach(slot => {
+      const button = document.createElement("div");
+
+      button.className = "agenda-slot";
+      button.textContent = slot.hora;
+
+      if (slot.disponible) {
+        button.classList.add("available");
+        button.setAttribute("aria-label", `${slot.hora}, disponible`);
+        button.title = "Horario disponible";
+      } else {
+        button.classList.add("busy");
+        button.setAttribute("aria-label", `${slot.hora}, ocupado`);
+        button.title = "Horario ocupado";
+      }
+
+      agendaSlots.appendChild(button);
+    });
+  }
+
+  function renderAgenda(days) {
+    agendaDays.innerHTML = "";
+    agendaSlots.innerHTML = "";
+    agendaSlotsContainer.hidden = true;
+
+    agendaData = days;
+
+    if (!Array.isArray(days) || days.length === 0) {
+      agendaStatus.textContent = "No hay horarios para mostrar.";
+      return;
+    }
+
+    agendaStatus.textContent = "Disponibilidad actualizada.";
+
+    days.forEach(day => {
+      const dateInfo = formatShortDate(day.fecha);
+      const button = document.createElement("button");
+
+      button.type = "button";
+      button.className = "agenda-day";
+      button.dataset.date = day.fecha;
+
+      const weekday = document.createElement("span");
+      weekday.className = "agenda-day-weekday";
+      weekday.textContent = dateInfo.weekday;
+
+      const number = document.createElement("strong");
+      number.className = "agenda-day-number";
+      number.textContent = dateInfo.day;
+
+      const month = document.createElement("small");
+      month.className = "agenda-day-month";
+
+      const parts = day.fecha.split("-").map(Number);
+      month.textContent = new Date(
+        parts[0], parts[1] - 1, parts[2]
+      ).toLocaleDateString("es-UY", { month: "short" });
+
+      button.append(weekday, number, month);
+
+      if (day.cerrado) {
+        button.classList.add("closed");
+        button.title = "Cerrado";
+      }
+
+      button.addEventListener("click", () => {
+        selectAgendaDay(day.fecha);
+      });
+
+      agendaDays.appendChild(button);
+    });
+
+    // Selecciona el primer día abierto; si todos están cerrados,
+    // muestra el primero de la lista.
+    const firstOpenDay = days.find(day => !day.cerrado);
+    const initialDay = firstOpenDay || days[0];
+
+    selectAgendaDay(initialDay.fecha);
+  }
+
+  async function loadAgenda() {
+    if (!agendaStatus) return;
+
+    agendaStatus.textContent = "Consultando disponibilidad...";
+    agendaDays.innerHTML = "";
+    agendaSlotsContainer.hidden = true;
+
+    try {
+      const response = await fetch("/api/horarios", {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          "Accept": "application/json"
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error del servidor (${response.status})`);
+      }
+
+      const data = await response.json();
+
+      if (!data || !Array.isArray(data.dias)) {
+        throw new Error("La respuesta de horarios no tiene el formato esperado.");
+      }
+
+      renderAgenda(data.dias);
+
+    } catch (error) {
+      console.error("Error al cargar agenda:", error);
+
+      agendaStatus.textContent =
+        "No pudimos cargar los horarios. Revisá tu conexión e intentá nuevamente.";
+
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "secondary-button";
+      retry.textContent = "Volver a intentar";
+      retry.addEventListener("click", loadAgenda);
+
+      agendaDays.appendChild(retry);
+    }
+  }
+
+  // CONSULTA DE AGENDA POR WHATSAPP
+
+  $("agendaWhatsappButton").addEventListener("click", () => {
+    let message = "Hola Buceonet, quisiera consultar por un turno.";
+
+    if (selectedAgendaDate) {
+      const dayData = agendaData.find(
+        day => day.fecha === selectedAgendaDate
+      );
+
+      message =
+        `Hola Buceonet, quisiera consultar por un turno para el ${formatAgendaDate(selectedAgendaDate)}.`;
+
+      if (dayData && !dayData.cerrado) {
+        const available = dayData.horarios
+          .filter(slot => slot.disponible)
+          .map(slot => slot.hora);
+
+        if (available.length) {
+          message += ` Vi estos horarios disponibles: ${available.join(", ")}.`;
+        }
+      }
+    }
+
+    window.open(
+      `https://wa.me/59899525777?text=${encodeURIComponent(message)}`,
+      "_blank"
+    );
+  });
+
+  // Carga inicial de horarios.
+  loadAgenda();
 
   // SEGURIDAD HTTPS
 
