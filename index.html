@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#05090d">
-  <meta name="description" content="Buceonet Tester: probá los botones y joysticks de tu control.">
+  <meta name="description" content="Buceonet Tester: probá los botones y joysticks de tu control y consultá los horarios disponibles.">
   <title>Buceonet Tester</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -184,6 +184,58 @@
       </div>
 
       <p class="disclaimer">Este tester muestra las señales que el navegador recibe del control. No reemplaza una revisión técnica del hardware y no puede confirmar por sí solo el estado de componentes internos.</p>
+    </section>
+
+    <!-- AGENDA BUCEONET -->
+    <section class="panel agenda-panel" id="agenda">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">BUCEONET VIDEOJUEGOS</span>
+          <h2>Consultá nuestros horarios</h2>
+        </div>
+        <span class="small-tag">AGENDA</span>
+      </div>
+
+      <p class="agenda-description">
+        Consultá los próximos 7 días y mirá qué horarios tenemos disponibles para recibir tu equipo.
+      </p>
+
+      <div id="agendaStatus" class="agenda-status" role="status">
+        Cargando disponibilidad...
+      </div>
+
+      <div id="agendaDays" class="agenda-days">
+        <!-- Los días se cargarán automáticamente -->
+      </div>
+
+      <div id="agendaSlotsContainer" class="agenda-slots-container" hidden>
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">DISPONIBILIDAD</span>
+            <h2 id="agendaSelectedDate">Horarios</h2>
+          </div>
+        </div>
+
+        <div id="agendaSlots" class="agenda-slots">
+          <!-- Los horarios se cargarán automáticamente -->
+        </div>
+      </div>
+
+      <div class="agenda-legend">
+        <span><i class="available-dot"></i> Disponible</span>
+        <span><i class="busy-dot"></i> Ocupado</span>
+      </div>
+
+      <p id="agendaNote" class="agenda-note">
+        Los horarios disponibles son orientativos. Contactanos por WhatsApp para confirmar tu turno.
+      </p>
+
+      <button
+        id="agendaWhatsappButton"
+        class="primary-button"
+        type="button">
+        Consultar por WhatsApp
+      </button>
     </section>
 
     <footer>BUCEONET VIDEOJUEGOS <span>·</span> Diagnóstico inicial de controles</footer>
