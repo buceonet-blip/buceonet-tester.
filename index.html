@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="es">
 <head>
@@ -14,7 +15,10 @@
       <span class="brand-mark">B</span>
       <span><strong>BUCEONET</strong><small>TESTER DE CONTROLES</small></span>
     </a>
-    <span class="status-pill"><i id="statusDot"></i><span id="connectionStatus">Sin control conectado</span></span>
+    <span class="status-pill">
+      <i id="statusDot"></i>
+      <span id="connectionStatus">Sin control conectado</span>
+    </span>
   </header>
 
   <main class="container">
@@ -29,6 +33,7 @@
       <div class="connect-copy">
         <h2>Conectá tu control</h2>
         <p id="connectHelp">Conectalo por USB o Bluetooth y presioná cualquier botón para que el navegador lo detecte.</p>
+        <p id="controllerProfile" class="profile-label">Esperando identificación del control…</p>
       </div>
       <button id="startButton" class="primary-button">Comenzar prueba</button>
     </section>
@@ -36,8 +41,11 @@
     <section id="tester" class="tester-grid" aria-live="polite">
       <div class="panel controller-panel">
         <div class="section-heading">
-          <div><span class="eyebrow">ENTRADAS</span><h2>Botones</h2></div>
-          <span class="small-tag" id="buttonCount">0 / 17</span>
+          <div>
+            <span class="eyebrow">ENTRADAS</span>
+            <h2>Botones</h2>
+          </div>
+          <span class="small-tag" id="buttonCount">0 / 0</span>
         </div>
 
         <div class="controller-layout">
@@ -94,7 +102,12 @@
             <span class="group-name">CENTRO</span>
             <span class="test-button wide" data-button="8">SHARE / CREATE</span>
             <span class="test-button wide" data-button="9">OPTIONS</span>
-            <span class="test-button wide" data-button="16">PS / HOME</span>
+            <span class="test-button wide" data-button="16">HOME</span>
+          </div>
+
+          <div class="button-row" id="touchpadRow" hidden>
+            <span class="group-name">TOUCHPAD</span>
+            <span class="test-button wide touchpad-button" data-button="17">CLICK TOUCHPAD</span>
           </div>
         </div>
 
@@ -103,7 +116,10 @@
 
       <div class="panel sticks-panel">
         <div class="section-heading">
-          <div><span class="eyebrow">MOVIMIENTO</span><h2>Joysticks</h2></div>
+          <div>
+            <span class="eyebrow">MOVIMIENTO</span>
+            <h2>Joysticks</h2>
+          </div>
           <span class="small-tag">EJES EN VIVO</span>
         </div>
 
@@ -149,7 +165,10 @@
 
     <section class="panel report-panel">
       <div class="section-heading">
-        <div><span class="eyebrow">RESUMEN</span><h2>Estado de la prueba</h2></div>
+        <div>
+          <span class="eyebrow">RESUMEN</span>
+          <h2>Estado de la prueba</h2>
+        </div>
         <span id="testState" class="small-tag">PENDIENTE</span>
       </div>
 
