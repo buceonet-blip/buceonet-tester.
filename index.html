@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="es">
 <head>
@@ -113,18 +112,28 @@
             <h3>IZQUIERDO <span id="leftCoords">X 0.00 · Y 0.00</span></h3>
             <div class="stick-area">
               <div class="crosshair"></div>
+              <canvas class="circularity-canvas" id="leftCanvas"></canvas>
               <div class="stick-dot" id="leftDot"></div>
             </div>
+            <button class="secondary-button circularity-button" id="leftCircularityButton" disabled>Iniciar test</button>
+            <div class="circularity-result" id="leftCircularityResult">Circularidad pendiente.</div>
           </div>
 
           <div class="stick-test">
             <h3>DERECHO <span id="rightCoords">X 0.00 · Y 0.00</span></h3>
             <div class="stick-area">
               <div class="crosshair"></div>
+              <canvas class="circularity-canvas" id="rightCanvas"></canvas>
               <div class="stick-dot" id="rightDot"></div>
             </div>
+            <button class="secondary-button circularity-button" id="rightCircularityButton" disabled>Iniciar test</button>
+            <div class="circularity-result" id="rightCircularityResult">Circularidad pendiente.</div>
           </div>
         </div>
+
+        <p class="circularity-hint">
+          Para medir: iniciá la prueba y girá el stick lentamente en círculos, recorriendo todo el borde. Presioná Finalizar test cuando completes varias vueltas.
+        </p>
 
         <div class="drift-box">
           <div>
