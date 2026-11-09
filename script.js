@@ -6,31 +6,17 @@
   // BUCEONET VIDEOJUEGOS - TESTER
   // ==========================================
 
-  const TOTAL_BUTTONS = 17;
-
   const buttonNames = [
-    "A",
-    "B",
-    "X",
-    "Y",
-    "LB",
-    "RB",
-    "LT",
-    "RT",
-    "View / Share",
-    "Menu / Options",
-    "Stick izquierdo L3",
-    "Stick derecho R3",
-    "Cruceta arriba",
-    "Cruceta abajo",
-    "Cruceta izquierda",
-    "Cruceta derecha",
+    "A", "B", "X", "Y",
+    "LB", "RB", "LT", "RT",
+    "View / Share", "Menu / Options",
+    "Stick izquierdo L3", "Stick derecho R3",
+    "Cruceta arriba", "Cruceta abajo",
+    "Cruceta izquierda", "Cruceta derecha",
     "Botón PS / Xbox / Home"
   ];
 
   const testedButtons = new Set();
-
-  // Guarda el máximo valor registrado de cada botón.
   const buttonMaxValues = {};
 
   let gamepad = null;
@@ -41,6 +27,11 @@
   let leftCircularity = null;
   let rightCircularity = null;
 
+  // Guardamos los datos del gráfico para que
+  // el loop de los joysticks no lo borre.
+  let leftCircularityValues = null;
+  let rightCircularityValues = null;
+
   let driftTest = {
     active: false,
     startTime: 0,
@@ -48,12 +39,7 @@
     timer: null
   };
 
-  // ==========================================
-  // ELEMENTOS HTML
-  // ==========================================
-
   const $ = (selector) => document.querySelector(selector);
-
   const $$ = (selector) => [...document.querySelectorAll(selector)];
 
   const leftCanvas = $("#leftCanvas");
@@ -76,10 +62,7 @@
       id.includes("054c") ||
       id.includes("sony")
     ) {
-      return {
-        name: "PlayStation",
-        family: "playstation"
-      };
+      return { name: "PlayStation", family: "playstation" };
     }
 
     if (
@@ -88,10 +71,7 @@
       id.includes("045e") ||
       id.includes("microsoft")
     ) {
-      return {
-        name: "Xbox",
-        family: "xbox"
-      };
+      return { name: "Xbox", family: "xbox" };
     }
 
     if (
@@ -101,82 +81,41 @@
       id.includes("joycon") ||
       id.includes("pro controller")
     ) {
-      return {
-        name: "Nintendo",
-        family: "nintendo"
-      };
+      return { name: "Nintendo", family: "nintendo" };
     }
 
-    return {
-      name: "Genérico",
-      family: "generic"
-    };
+    return { name: "Genérico", family: "generic" };
   }
 
   function getButtonNames(profile) {
     if (profile.family === "playstation") {
       return [
-        "Cruz",
-        "Círculo",
-        "Cuadrado",
-        "Triángulo",
-        "L1",
-        "R1",
-        "L2",
-        "R2",
-        "Create / Share",
-        "Options",
-        "L3",
-        "R3",
-        "Cruceta arriba",
-        "Cruceta abajo",
-        "Cruceta izquierda",
-        "Cruceta derecha",
+        "Cruz", "Círculo", "Cuadrado", "Triángulo",
+        "L1", "R1", "L2", "R2",
+        "Create / Share", "Options", "L3", "R3",
+        "Cruceta arriba", "Cruceta abajo",
+        "Cruceta izquierda", "Cruceta derecha",
         "Botón PS"
       ];
     }
 
     if (profile.family === "xbox") {
       return [
-        "A",
-        "B",
-        "X",
-        "Y",
-        "LB",
-        "RB",
-        "LT",
-        "RT",
-        "View",
-        "Menu",
-        "Stick izquierdo L3",
-        "Stick derecho R3",
-        "Cruceta arriba",
-        "Cruceta abajo",
-        "Cruceta izquierda",
-        "Cruceta derecha",
-        "Botón Xbox / Home"
+        "A", "B", "X", "Y", "LB", "RB", "LT", "RT",
+        "View", "Menu", "Stick izquierdo L3",
+        "Stick derecho R3", "Cruceta arriba",
+        "Cruceta abajo", "Cruceta izquierda",
+        "Cruceta derecha", "Botón Xbox / Home"
       ];
     }
 
     if (profile.family === "nintendo") {
       return [
-        "B",
-        "A",
-        "Y",
-        "X",
-        "L",
-        "R",
-        "ZL",
-        "ZR",
-        "Minus",
-        "Plus",
-        "Stick izquierdo L3",
-        "Stick derecho R3",
-        "Cruceta arriba",
-        "Cruceta abajo",
-        "Cruceta izquierda",
-        "Cruceta derecha",
-        "Botón Home"
+        "B", "A", "Y", "X", "L", "R", "ZL", "ZR",
+        "Minus", "Plus", "Stick izquierdo L3",
+        "Stick derecho R3", "Cruceta arriba",
+        "Cruceta abajo", "Cruceta izquierda",
+        "Cruceta derecha", "Botón Home"
       ];
     }
 
@@ -213,27 +152,22 @@
 
   function updateCounter() {
     const visibleButtons = getVisibleButtons();
-
     const total = visibleButtons.length;
 
     const tested = visibleButtons.filter((element) => {
-      const index = Number(element.dataset.button);
-      return testedButtons.has(index);
+      return testedButtons.has(Number(element.dataset.button));
     }).length;
 
     const counter = $("#buttonCounter");
     const progress = $("#progressFill");
+    const alternativeCounter = $("#buttonsCounter");
 
-    if (counter) {
-      counter.textContent = `${tested} / ${total}`;
-    }
+    if (counter) counter.textContent = `${tested} / ${total}`;
 
     if (progress) {
       progress.style.width =
         `${total ? (tested / total) * 100 : 0}%`;
     }
-
-    const alternativeCounter = $("#buttonsCounter");
 
     if (alternativeCounter) {
       alternativeCounter.textContent = `${tested} / ${total}`;
@@ -288,26 +222,19 @@
 
     leftCircularity = null;
     rightCircularity = null;
+    leftCircularityValues = null;
+    rightCircularityValues = null;
 
     const status = $("#connectionStatus");
-
-    if (status) {
-      status.textContent = "Control conectado";
-    }
+    if (status) status.textContent = "Control conectado";
 
     const name = $("#controllerName");
-
-    if (name) {
-      name.textContent = pad.id;
-    }
+    if (name) name.textContent = pad.id;
 
     updateButtonLayout(pad);
 
     const connected = $("#connectedStatus");
-
-    if (connected) {
-      connected.textContent = "CONECTADO";
-    }
+    if (connected) connected.textContent = "CONECTADO";
   }
 
   function disconnect() {
@@ -320,35 +247,22 @@
     }
 
     const status = $("#connectionStatus");
-
-    if (status) {
-      status.textContent = "Esperando control...";
-    }
+    if (status) status.textContent = "Esperando control...";
 
     const name = $("#controllerName");
-
-    if (name) {
-      name.textContent = "Sin conectar";
-    }
+    if (name) name.textContent = "Sin conectar";
 
     const connected = $("#connectedStatus");
-
-    if (connected) {
-      connected.textContent = "DESCONECTADO";
-    }
+    if (connected) connected.textContent = "DESCONECTADO";
   }
 
   function getAvailablePad() {
-    if (!navigator.getGamepads) {
-      return null;
-    }
+    if (!navigator.getGamepads) return null;
 
     const pads = navigator.getGamepads();
 
     for (const pad of pads) {
-      if (pad && pad.connected) {
-        return pad;
-      }
+      if (pad && pad.connected) return pad;
     }
 
     return null;
@@ -357,9 +271,7 @@
   window.addEventListener("gamepadconnected", (event) => {
     setConnected(event.gamepad);
 
-    if (!animationFrame) {
-      loop();
-    }
+    if (!animationFrame) loop();
   });
 
   window.addEventListener("gamepaddisconnected", () => {
@@ -373,19 +285,15 @@
   function registerButton(index, button) {
     const rawValue = Number(button.value) || 0;
 
-    // Algunos navegadores informan pressed=true
-    // aunque el valor analógico aparezca como 0.
     const currentValue = button.pressed
       ? Math.max(rawValue, 1)
       : rawValue;
 
-    // Guardamos el valor máximo de toda la sesión.
     buttonMaxValues[index] = Math.max(
       buttonMaxValues[index] || 0,
       currentValue
     );
 
-    // Registramos el botón como probado.
     if (button.pressed || rawValue > 0.1) {
       testedButtons.add(index);
     }
@@ -445,12 +353,10 @@
     const profile = getProfile(pad);
     const names = getButtonNames(profile);
 
-    const buttons = pad.buttons.map((button, index) => {
-      return {
-        ...registerButton(index, button),
-        name: names[index] || `Botón ${index}`
-      };
-    });
+    const buttons = pad.buttons.map((button, index) => ({
+      ...registerButton(index, button),
+      name: names[index] || `Botón ${index}`
+    }));
 
     const axes = Array.from(pad.axes || []).map((axis) => {
       return Number((Number(axis) || 0).toFixed(3));
@@ -472,7 +378,7 @@
   }
 
   // ==========================================
-  // JOYSTICKS
+  // JOYSTICKS EN VIVO
   // ==========================================
 
   function updateJoystickDisplays(axes) {
@@ -483,12 +389,7 @@
       axes[3] || 0
     ];
 
-    const ids = [
-      "#leftX",
-      "#leftY",
-      "#rightX",
-      "#rightY"
-    ];
+    const ids = ["#leftX", "#leftY", "#rightX", "#rightY"];
 
     ids.forEach((selector, index) => {
       const element = $(selector);
@@ -498,12 +399,23 @@
       }
     });
 
-    drawJoystick(leftCanvas, values[0], values[1]);
-    drawJoystick(rightCanvas, values[2], values[3]);
+    drawJoystick(leftCanvas, values[0], values[1], "left");
+    drawJoystick(rightCanvas, values[2], values[3], "right");
   }
 
-  function drawJoystick(canvas, x, y) {
+  function drawJoystick(canvas, x, y, side) {
     if (!canvas) return;
+
+    // Si ya se hizo la prueba, mantenemos visible
+    // el gráfico de circularidad y no lo borramos.
+    const savedValues = side === "left"
+      ? leftCircularityValues
+      : rightCircularityValues;
+
+    if (savedValues) {
+      drawCircularity(side, savedValues);
+      return;
+    }
 
     const ctx = canvas.getContext("2d");
 
@@ -547,18 +459,23 @@
     const startIndex = side === "left" ? 0 : 2;
 
     const samples = [];
-    const sectors = 36;
     const totalSamples = 100;
 
     let count = 0;
 
-    const canvas = side === "left"
-      ? leftCanvas
-      : rightCanvas;
-
     const button = side === "left"
       ? leftCircularityButton
       : rightCircularityButton;
+
+    // Al iniciar una nueva prueba, volvemos a mostrar
+    // el movimiento del stick en vivo.
+    if (side === "left") {
+      leftCircularity = null;
+      leftCircularityValues = null;
+    } else {
+      rightCircularity = null;
+      rightCircularityValues = null;
+    }
 
     if (button) {
       button.disabled = true;
@@ -582,10 +499,8 @@
       const distance = Math.sqrt(x * x + y * y);
 
       if (distance > 0.15) {
-        const angle = Math.atan2(y, x);
-
         samples.push({
-          angle,
+          angle: Math.atan2(y, x),
           distance
         });
       }
@@ -603,21 +518,21 @@
   }
 
   function finishCircularity(side, samples, button) {
-    const sectors = 36;
-    const values = new Array(sectors).fill(0);
+    const sectorCount = 36;
+    const values = new Array(sectorCount).fill(0);
 
+    // Guardamos la mayor distancia observada
+    // en cada uno de los 36 sectores.
     samples.forEach((sample) => {
       let angle = sample.angle;
 
-      if (angle < 0) {
-        angle += Math.PI * 2;
-      }
+      if (angle < 0) angle += Math.PI * 2;
 
       const sector = Math.floor(
-        (angle / (Math.PI * 2)) * sectors
+        (angle / (Math.PI * 2)) * sectorCount
       );
 
-      const index = Math.min(sectors - 1, sector);
+      const index = Math.min(sectorCount - 1, sector);
 
       values[index] = Math.max(
         values[index],
@@ -625,17 +540,18 @@
       );
     });
 
-    const occupied = values.filter((value) => value > 0).length;
+    const occupiedValues = values.filter((value) => value > 0);
+
+    const occupied = occupiedValues.length;
 
     const coverage = Math.round(
-      (occupied / sectors) * 100
+      (occupied / sectorCount) * 100
     );
 
     const maximum = Math.max(...values, 0);
-
-    const minimum = Math.min(
-      ...values.filter((value) => value > 0)
-    );
+    const minimum = occupied
+      ? Math.min(...occupiedValues)
+      : 0;
 
     const circularity = maximum > 0
       ? Math.round((minimum / maximum) * 100)
@@ -649,8 +565,10 @@
 
     if (side === "left") {
       leftCircularity = result;
+      leftCircularityValues = values.slice();
     } else {
       rightCircularity = result;
+      rightCircularityValues = values.slice();
     }
 
     drawCircularity(side, values);
@@ -672,6 +590,24 @@
     }
   }
 
+  // Interpolación suave entre los sectores para
+  // evitar un polígono dentado de 36 lados.
+  function getSmoothRadius(values, angle) {
+    const count = values.length;
+
+    const position = (angle / (Math.PI * 2)) * count;
+
+    const index1 = Math.floor(position) % count;
+    const index2 = (index1 + 1) % count;
+
+    const fraction = position - Math.floor(position);
+
+    const a = values[index1] || 0;
+    const b = values[index2] || 0;
+
+    return a + (b - a) * fraction;
+  }
+
   function drawCircularity(side, values) {
     const canvas = side === "left"
       ? leftCanvas
@@ -690,22 +626,41 @@
 
     ctx.clearRect(0, 0, width, height);
 
+    // Círculo exterior de referencia.
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     ctx.strokeStyle = "#34515c";
     ctx.lineWidth = 2;
     ctx.stroke();
 
+    // Guías centrales.
+    ctx.beginPath();
+    ctx.moveTo(cx - radius, cy);
+    ctx.lineTo(cx + radius, cy);
+    ctx.moveTo(cx, cy - radius);
+    ctx.lineTo(cx, cy + radius);
+    ctx.strokeStyle = "#29414b";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    const maximum = Math.max(...values, 0);
+
+    if (maximum <= 0) return;
+
+    // Dibujamos 360 puntos interpolados para
+    // que el contorno quede continuo y suave.
     const points = [];
+    const pointCount = 360;
 
-    for (let i = 0; i < 72; i++) {
-      const angle = (i / 72) * Math.PI * 2;
+    for (let i = 0; i < pointCount; i++) {
+      const angle = (i / pointCount) * Math.PI * 2;
 
-      const sector = Math.floor(i / 2);
+      const measured = getSmoothRadius(values, angle);
 
-      const distance = values[sector] || 0;
+      // Normalizamos el máximo al radio exterior.
+      const normalized = measured / maximum;
 
-      const r = radius * Math.min(distance, 1);
+      const r = radius * normalized;
 
       points.push({
         x: cx + Math.cos(angle) * r,
@@ -713,26 +668,33 @@
       });
     }
 
-    if (points.some((point) => point.x !== cx || point.y !== cy)) {
-      ctx.beginPath();
+    // Superficie rellena.
+    ctx.beginPath();
 
-      points.forEach((point, index) => {
-        if (index === 0) {
-          ctx.moveTo(point.x, point.y);
-        } else {
-          ctx.lineTo(point.x, point.y);
-        }
-      });
+    points.forEach((point, index) => {
+      if (index === 0) {
+        ctx.moveTo(point.x, point.y);
+      } else {
+        ctx.lineTo(point.x, point.y);
+      }
+    });
 
-      ctx.closePath();
+    ctx.closePath();
 
-      ctx.fillStyle = "rgba(0, 255, 157, 0.25)";
-      ctx.fill();
+    ctx.fillStyle = "rgba(0, 255, 157, 0.28)";
+    ctx.fill();
 
-      ctx.strokeStyle = "#00ff9d";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
+    // Contorno del resultado.
+    ctx.strokeStyle = "#00ff9d";
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+
+    // Centro.
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#00ff9d";
+    ctx.fill();
   }
 
   if (leftCircularityButton) {
@@ -774,7 +736,12 @@
       const collect = () => {
         const pad = getAvailablePad();
 
-        if (!pad) return;
+        if (!pad) {
+          driftTest.active = false;
+          driftButton.disabled = false;
+          driftButton.textContent = "Repetir prueba de drift";
+          return;
+        }
 
         const axes = Array.from(pad.axes || []);
 
@@ -854,7 +821,6 @@
     report += "Tipo detectado: " + profile.name + "\n\n";
 
     const visibleButtons = getVisibleButtons();
-
     const total = visibleButtons.length;
 
     const tested = visibleButtons.filter((element) => {
@@ -866,23 +832,18 @@
 
     pad.buttons.forEach((button, index) => {
       const maxValue = buttonMaxValues[index] || 0;
-
       const percent = Math.round(maxValue * 100);
-
       const wasTested = testedButtons.has(index);
 
       const name = names[index] || `Botón ${index}`;
 
-      const status = wasTested
-        ? "PROBADO"
-        : "NO PROBADO";
+      const status = wasTested ? "PROBADO" : "NO PROBADO";
 
       const valueText = wasTested
         ? `PULSADO (${percent}%)`
         : "SIN PULSAR (0%)";
 
-      report +=
-        `${name}: ${status} | ${valueText}\n`;
+      report += `${name}: ${status} | ${valueText}\n`;
     });
 
     report += "\nEJES:\n";
@@ -921,7 +882,6 @@
     );
 
     const url = URL.createObjectURL(blob);
-
     const link = document.createElement("a");
 
     link.href = url;
