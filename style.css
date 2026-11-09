@@ -568,6 +568,119 @@ button:disabled {
 
 .disclaimer { margin-top: 15px; }
 
+/* AGENDA BUCEONET */
+
+.agenda-panel {
+  margin-top: 20px;
+}
+
+.agenda-description {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: -10px 0 18px;
+}
+
+.agenda-status {
+  color: var(--cyan);
+  font-size: 11px;
+  margin-bottom: 15px;
+}
+
+.agenda-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.agenda-day {
+  min-width: 0;
+  padding: 12px 4px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #0b141b;
+  color: var(--text);
+  text-align: center;
+}
+
+.agenda-day strong,
+.agenda-day small {
+  display: block;
+}
+
+.agenda-day strong {
+  font-size: 11px;
+}
+
+.agenda-day small {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 5px;
+}
+
+.agenda-day.selected {
+  border-color: var(--cyan);
+  background: #12313b;
+  box-shadow: 0 0 12px #18d7e822;
+}
+
+.agenda-day:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.agenda-slots-container {
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.agenda-slots-container h3 {
+  font-size: 14px;
+  margin: 0 0 14px;
+}
+
+.agenda-slots {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.agenda-slot {
+  padding: 12px 5px;
+  border-radius: 9px;
+  border: 1px solid var(--green);
+  background: #103a2b;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.agenda-slot.busy {
+  border-color: #74404b;
+  background: #321b24;
+  color: #ff8495;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  opacity: .8;
+}
+
+.agenda-slot:disabled {
+  cursor: not-allowed;
+}
+
+.agenda-closed {
+  color: var(--red);
+  font-size: 12px;
+}
+
+.agenda-note {
+  margin: 17px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 footer {
   text-align: center;
   color: #71828d;
@@ -598,6 +711,14 @@ footer span {
     flex-direction: column;
   }
   .drift-box button { width: 100%; }
+
+  .agenda-days {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .agenda-slots {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media(max-width:390px) {
@@ -609,5 +730,13 @@ footer span {
   .circularity-button { max-width: 130px; }
   .trigger-wrap {
     grid-template-columns: 42px minmax(35px, 1fr) 30px;
+  }
+
+  .agenda-days {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .agenda-slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
