@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="es">
 <head>
@@ -39,6 +40,7 @@
           <div><span class="eyebrow">ENTRADAS</span><h2>Botones</h2></div>
           <span class="small-tag" id="buttonCount">0 / 17</span>
         </div>
+
         <div class="controller-layout">
           <div class="button-cluster dpad-cluster">
             <span class="cluster-label">CRUCETA</span>
@@ -50,6 +52,7 @@
               <span class="test-button" data-button="13">↓</span>
             </div>
           </div>
+
           <div class="button-cluster face-cluster">
             <span class="cluster-label">BOTONES PRINCIPALES</span>
             <div class="face-buttons">
@@ -60,22 +63,34 @@
             </div>
           </div>
         </div>
+
         <div class="button-groups">
           <div class="button-row">
             <span class="group-name">HOMBROS</span>
             <span class="test-button wide" data-button="4">L1</span>
             <span class="test-button wide" data-button="5">R1</span>
           </div>
+
           <div class="button-row">
             <span class="group-name">GATILLOS</span>
-            <div class="trigger-wrap"><span class="test-button wide" data-button="6">L2</span><div class="meter"><i id="l2Meter"></i></div><small id="l2Value">0%</small></div>
-            <div class="trigger-wrap"><span class="test-button wide" data-button="7">R2</span><div class="meter"><i id="r2Meter"></i></div><small id="r2Value">0%</small></div>
+            <div class="trigger-wrap">
+              <span class="test-button wide" data-button="6">L2</span>
+              <div class="meter"><i id="l2Meter"></i></div>
+              <small id="l2Value">0%</small>
+            </div>
+            <div class="trigger-wrap">
+              <span class="test-button wide" data-button="7">R2</span>
+              <div class="meter"><i id="r2Meter"></i></div>
+              <small id="r2Value">0%</small>
+            </div>
           </div>
+
           <div class="button-row">
             <span class="group-name">STICKS</span>
             <span class="test-button wide" data-button="10">L3</span>
             <span class="test-button wide" data-button="11">R3</span>
           </div>
+
           <div class="button-row">
             <span class="group-name">CENTRO</span>
             <span class="test-button wide" data-button="8">SHARE / CREATE</span>
@@ -83,6 +98,7 @@
             <span class="test-button wide" data-button="16">PS / HOME</span>
           </div>
         </div>
+
         <p class="hint">Los nombres y posiciones pueden variar según el modelo del control y el navegador.</p>
       </div>
 
@@ -91,20 +107,33 @@
           <div><span class="eyebrow">MOVIMIENTO</span><h2>Joysticks</h2></div>
           <span class="small-tag">EJES EN VIVO</span>
         </div>
+
         <div class="sticks">
           <div class="stick-test">
             <h3>IZQUIERDO <span id="leftCoords">X 0.00 · Y 0.00</span></h3>
-            <div class="stick-area"><div class="crosshair"></div><div class="stick-dot" id="leftDot"></div></div>
+            <div class="stick-area">
+              <div class="crosshair"></div>
+              <div class="stick-dot" id="leftDot"></div>
+            </div>
           </div>
+
           <div class="stick-test">
             <h3>DERECHO <span id="rightCoords">X 0.00 · Y 0.00</span></h3>
-            <div class="stick-area"><div class="crosshair"></div><div class="stick-dot" id="rightDot"></div></div>
+            <div class="stick-area">
+              <div class="crosshair"></div>
+              <div class="stick-dot" id="rightDot"></div>
+            </div>
           </div>
         </div>
+
         <div class="drift-box">
-          <div><strong>Prueba de centrado</strong><p>Soltá ambos sticks y mantenelos quietos durante 5 segundos.</p></div>
+          <div>
+            <strong>Prueba de centrado</strong>
+            <p>Soltá ambos sticks y mantenelos quietos durante 5 segundos.</p>
+          </div>
           <button id="driftButton" class="secondary-button" disabled>Medir centrado</button>
         </div>
+
         <div id="driftResult" class="result-line">Esperando medición.</div>
       </div>
     </section>
@@ -114,20 +143,24 @@
         <div><span class="eyebrow">RESUMEN</span><h2>Estado de la prueba</h2></div>
         <span id="testState" class="small-tag">PENDIENTE</span>
       </div>
+
       <div class="summary-grid">
         <div><strong id="summaryController">No detectado</strong><small>Control</small></div>
-        <div><strong id="summaryButtons">0</strong><small>Botones presionados</small></div>
+        <div><strong id="summaryButtons">0</strong><small>Botones probados</small></div>
         <div><strong id="summaryAxes">—</strong><small>Ejes detectados</small></div>
       </div>
+
       <div class="report-actions">
         <button id="reportButton" class="primary-button" disabled>Descargar informe TXT</button>
         <button id="whatsappButton" class="secondary-button">Consultar por WhatsApp</button>
       </div>
+
       <p class="disclaimer">Este tester muestra las señales que el navegador recibe del control. No reemplaza una revisión técnica del hardware y no puede confirmar por sí solo el estado de componentes internos.</p>
     </section>
 
     <footer>BUCEONET VIDEOJUEGOS <span>·</span> Diagnóstico inicial de controles</footer>
   </main>
+
   <script src="script.js"></script>
 </body>
 </html>
