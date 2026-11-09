@@ -1,4 +1,3 @@
-
 (() => {
   "use strict";
 
@@ -37,6 +36,37 @@
     14: "Cruceta izquierda",
     15: "Cruceta derecha",
     16: "PS / Home"
+  };
+
+  // Datos independientes para cada stick.
+  const circularity = {
+    left: {
+      active: false,
+      points: [],
+      result: null
+    },
+    right: {
+      active: false,
+      points: [],
+      result: null
+    }
+  };
+
+  const stickConfig = {
+    left: {
+      xAxis: 0,
+      yAxis: 1,
+      canvas: "leftCanvas",
+      button: "leftCircularityButton",
+      result: "leftCircularityResult"
+    },
+    right: {
+      xAxis: 2,
+      yAxis: 3,
+      canvas: "rightCanvas",
+      button: "rightCircularityButton",
+      result: "rightCircularityResult"
+    }
   };
 
   function updateCounter() {
@@ -79,6 +109,9 @@
     driftButton.disabled = false;
     reportButton.disabled = false;
 
+    $("leftCircularityButton").disabled = false;
+    $("rightCircularityButton").disabled = false;
+
     startButton.textContent = "Control detectado";
     startButton.disabled = true;
 
@@ -116,6 +149,9 @@
     driftButton.disabled = true;
     reportButton.disabled = true;
 
+    $("leftCircularityButton").disabled = true;
+    $("rightCircularityButton").disabled = true;
+
     resetTestedButtons();
 
     updateStick("leftDot", 0, 0);
@@ -133,6 +169,11 @@
     $("driftResult").textContent = "Esperando medición.";
 
     lastSnapshot = null;
+    driftTimer = null;
+    driftSamples = [];
+
+    resetCircularity("left");
+    resetCircularity("right");
   }
 
   function currentPad() {
@@ -203,6 +244,17 @@
     updateStick("leftDot", x0, y0);
     updateStick("rightDot", x1, y1);
 
+    // Guardar los puntos durante cada prueba de circularidad.
+    if (circularity.left.active) {
+      circularity.left.points.push({ x: x0, y: y0 });
+      drawCircularity("left");
+    }
+
+    if (circularity.right.active) {
+      circularity.right.points.push({ x: x1, y: y1 });
+      drawCircularity("right");
+    }
+
     lastSnapshot = {
       id: pad.id,
 
@@ -218,7 +270,12 @@
 
       axes: Array.from(pad.axes).map(
         v => Number(v.toFixed(3))
-      )
+      ),
+
+      circularity: {
+        left: circularity.left.result,
+        right: circularity.right.result
+      }
     };
 
     if (driftTimer) {
@@ -229,17 +286,251 @@
   }
 
   function updateStick(id, x, y) {
-    const limit = 1;
-
     const px =
-      50 + Math.max(-limit, Math.min(limit, x)) * 43;
+      50 + Math.max(-1, Math.min(1, x)) * 43;
 
     const py =
-      50 + Math.max(-limit, Math.min(limit, y)) * 43;
+      50 + Math.max(-1, Math.min(1, y)) * 43;
 
     $(id).style.left = px + "%";
     $(id).style.top = py + "%";
   }
+
+  // ------------------------------------
+  // TEST DE CIRCULARIDAD
+  // ------------------------------------
+
+  function startCircularity(side) {
+    const test = circularity[side];
+
+    if (!activeGamepad) return;
+
+    test.active = true;
+    test.points = [];
+    test.result = null;
+
+    $(stickConfig[side].button).textContent =
+      "Finalizar test";
+
+    $(stickConfig[side].result).textContent =
+      "Prueba en curso. Girá el stick en círculos.";
+
+    drawCircularity(side);
+  }
+
+  function finishCircularity(side) {
+    const test = circularity[side];
+
+    if (!test.active) return;
+
+    test.active = false;
+
+    $(stickConfig[side].button).textContent =
+      "Repetir test";
+
+    const result = calculateCircularity(test.points);
+
+    test.result = result;
+
+    if (!result.valid) {
+      $(stickConfig[side].result).textContent =
+        result.message;
+    } else {
+      $(stickConfig[side].result).textContent =
+        `Circularidad: ${result.score}% · Cobertura: ${result.coverage}%`;
+    }
+
+    drawCircularity(side);
+  }
+
+  function resetCircularity(side) {
+    const test = circularity[side];
+
+    test.active = false;
+    test.points = [];
+    test.result = null;
+
+    $(stickConfig[side].button).textContent =
+      "Iniciar test";
+
+    $(stickConfig[side].result).textContent =
+      "Circularidad pendiente.";
+
+    drawCircularity(side);
+  }
+
+  function calculateCircularity(points) {
+    // Se divide el recorrido en 36 sectores de 10 grados.
+    const sectors = new Array(36).fill(null);
+
+    let maxRadius = 0;
+    let validPoints = 0;
+
+    points.forEach(point => {
+      const radius = Math.sqrt(
+        point.x * point.x + point.y * point.y
+      );
+
+      // Ignorar movimientos muy cercanos al centro.
+      if (radius < 0.50) return;
+
+      validPoints++;
+
+      const angle = Math.atan2(
+        -point.y,
+        point.x
+      );
+
+      let degrees = angle * 180 / Math.PI;
+
+      if (degrees < 0) {
+        degrees += 360;
+      }
+
+      const sector = Math.floor(degrees / 10);
+
+      if (
+        sectors[sector] === null ||
+        radius > sectors[sector]
+      ) {
+        sectors[sector] = radius;
+      }
+
+      if (radius > maxRadius) {
+        maxRadius = radius;
+      }
+    });
+
+    const covered = sectors.filter(
+      value => value !== null
+    );
+
+    const coverage = Math.round(
+      covered.length / 36 * 100
+    );
+
+    // Para evitar resultados engañosos se exige
+    // un recorrido amplio y suficientes muestras.
+    if (validPoints < 100 || coverage < 70) {
+      return {
+        valid: false,
+        coverage,
+        message:
+          `Cobertura insuficiente (${coverage}%). Repetí el recorrido girando el stick por todo el borde.`
+      };
+    }
+
+    const minRadius = Math.min(...covered);
+    const maxCoveredRadius = Math.max(...covered);
+
+    if (maxCoveredRadius <= 0) {
+      return {
+        valid: false,
+        coverage,
+        message: "No se pudo calcular la circularidad."
+      };
+    }
+
+    const score = Math.round(
+      (minRadius / maxCoveredRadius) * 100
+    );
+
+    return {
+      valid: true,
+      score,
+      coverage,
+      minRadius: Number(minRadius.toFixed(3)),
+      maxRadius: Number(maxCoveredRadius.toFixed(3)),
+      samples: validPoints
+    };
+  }
+
+  function drawCircularity(side) {
+    const canvas = $(stickConfig[side].canvas);
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+
+    if (!rect.width || !rect.height) return;
+
+    const dpr = window.devicePixelRatio || 1;
+
+    const width = Math.round(rect.width * dpr);
+    const height = Math.round(rect.height * dpr);
+
+    if (
+      canvas.width !== width ||
+      canvas.height !== height
+    ) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0, 0, width, height);
+
+    const test = circularity[side];
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const radius = width * 0.43;
+
+    if (test.points.length < 2) return;
+
+    ctx.beginPath();
+
+    test.points.forEach((point, index) => {
+      const px = centerX + point.x * radius;
+      const py = centerY + point.y * radius;
+
+      if (index === 0) {
+        ctx.moveTo(px, py);
+      } else {
+        ctx.lineTo(px, py);
+      }
+    });
+
+    ctx.strokeStyle = test.active
+      ? "#18d7e8"
+      : "#64f59a";
+
+    ctx.lineWidth = Math.max(2, dpr * 2);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.shadowColor = test.active
+      ? "#18d7e8"
+      : "#64f59a";
+
+    ctx.shadowBlur = 7 * dpr;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  $("leftCircularityButton").addEventListener(
+    "click",
+    () => {
+      if (circularity.left.active) {
+        finishCircularity("left");
+      } else {
+        startCircularity("left");
+      }
+    }
+  );
+
+  $("rightCircularityButton").addEventListener(
+    "click",
+    () => {
+      if (circularity.right.active) {
+        finishCircularity("right");
+      } else {
+        startCircularity("right");
+      }
+    }
+  );
+
+  // ------------------------------------
+  // CONEXIÓN DEL CONTROL
+  // ------------------------------------
 
   startButton.addEventListener("click", () => {
     if (!("getGamepads" in navigator)) {
@@ -267,6 +558,10 @@
       disconnect();
     }
   });
+
+  // ------------------------------------
+  // PRUEBA DE CENTRADO / DRIFT
+  // ------------------------------------
 
   driftButton.addEventListener("click", () => {
     if (driftTimer) return;
@@ -343,6 +638,10 @@
     setTimeout(check, 100);
   });
 
+  // ------------------------------------
+  // INFORME TXT
+  // ------------------------------------
+
   reportButton.addEventListener("click", () => {
     if (!lastSnapshot) return;
 
@@ -373,6 +672,32 @@
       )
     );
 
+    lines.push(
+      "",
+      "TEST DE CIRCULARIDAD:"
+    );
+
+    ["left", "right"].forEach(side => {
+      const result = lastSnapshot.circularity[side];
+      const name = side === "left"
+        ? "Stick izquierdo"
+        : "Stick derecho";
+
+      if (!result) {
+        lines.push(`${name}: NO REALIZADO`);
+      } else if (!result.valid) {
+        lines.push(
+          `${name}: ${result.message}`
+        );
+      } else {
+        lines.push(
+          `${name}: ${result.score}% de circularidad`,
+          `Cobertura: ${result.coverage}%`,
+          `Muestras: ${result.samples}`
+        );
+      }
+    });
+
     if (lastSnapshot.drift) {
       lines.push(
         "",
@@ -399,8 +724,12 @@
     a.download = "informe-buceonet-tester.txt";
     a.click();
 
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
+
+  // ------------------------------------
+  // WHATSAPP BUCEONET
+  // ------------------------------------
 
   $("whatsappButton").addEventListener("click", () => {
     const phone = "59899525777";
